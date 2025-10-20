@@ -1,0 +1,476 @@
+<!DOCTYPE html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>OTAMESHI DETECTOR: Office</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      body {
+        background: #0f380f;
+        font-family: 'Courier New', monospace;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        min-height: 100vh;
+        color: #9bbc0f;
+      }
+
+      #game-container {
+        width: 100%;
+        max-width: 640px;
+        padding: 20px;
+      }
+
+      h1 {
+        text-align: center;
+        color: #9bbc0f;
+        font-size: 18px;
+        margin-bottom: 10px;
+        text-shadow: 2px 2px #0f380f;
+      }
+
+      .gauge-container {
+        margin-bottom: 10px;
+      }
+
+      .gauge-label {
+        font-size: 12px;
+        margin-bottom: 3px;
+        color: #8bac0f;
+      }
+
+      .gauge-bar {
+        width: 100%;
+        height: 20px;
+        background: #306230;
+        border: 2px solid #9bbc0f;
+        position: relative;
+        overflow: hidden;
+      }
+
+      .gauge-fill {
+        height: 100%;
+        background: #9bbc0f;
+        transition: width 0.3s;
+      }
+
+      #canvas {
+        width: 100%;
+        height: auto;
+        border: 4px solid #9bbc0f;
+        background: #8bac0f;
+        image-rendering: pixelated;
+        image-rendering: crisp-edges;
+        margin: 10px 0;
+      }
+
+      .button-container {
+        display: flex;
+        gap: 10px;
+        margin: 15px 0;
+      }
+
+      button {
+        flex: 1;
+        padding: 15px;
+        background: #306230;
+        color: #9bbc0f;
+        border: 3px solid #9bbc0f;
+        font-size: 14px;
+        font-family: 'Courier New', monospace;
+        cursor: pointer;
+        font-weight: bold;
+      }
+
+      button:hover {
+        background: #8bac0f;
+        color: #0f380f;
+      }
+
+      button:active {
+        transform: scale(0.95);
+      }
+
+      .info-text {
+        text-align: center;
+        font-size: 11px;
+        color: #8bac0f;
+        line-height: 1.4;
+      }
+
+      .message {
+        text-align: center;
+        background: #306230;
+        padding: 10px;
+        margin: 10px 0;
+        border: 2px solid #9bbc0f;
+        min-height: 60px;
+        font-size: 13px;
+        color: #9bbc0f;
+      }
+
+      #restart {
+        display: none;
+        margin: 10px auto;
+        width: 200px;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="game-container">
+      <h1>OTAMESHI DETECTOR: Office</h1>
+
+      <div class="gauge-container">
+        <div class="gauge-label">
+          おためしゲージ: <span id="otameshi-value">50</span>%
+        </div>
+        <div class="gauge-bar">
+          <div class="gauge-fill" id="otameshi-gauge" style="width: 50%"></div>
+        </div>
+      </div>
+
+      <div class="gauge-container">
+        <div class="gauge-label">
+          調子乗りゲージ: <span id="choshi-value">0</span>%
+        </div>
+        <div class="gauge-bar">
+          <div class="gauge-fill" id="choshi-gauge" style="width: 0%"></div>
+        </div>
+      </div>
+
+      <canvas id="canvas" width="160" height="144"></canvas>
+
+      <div class="message" id="message">会議が始まります...</div>
+
+      <div class="button-container">
+        <button id="btn-ignore">👁 スルー</button>
+        <button id="btn-counter">🎯 丁寧反論</button>
+        <button id="btn-laugh">🤹‍♀️ 笑い変換</button>
+      </div>
+
+      <button id="restart">リスタート</button>
+
+      <div class="info-text">
+        ターン: <span id="turn">0</span>/10<br />
+        おためしを0%にするかLOSEせず10ターン耐えろ!<br />
+        調子乗り100%でLOSE
+      </div>
+    </div>
+
+    <script>
+      const canvas = document.getElementById('canvas');
+      const ctx = canvas.getContext('2d');
+
+      // Game Boy palette
+      const colors = {
+        darkest: '#0f380f',
+        dark: '#306230',
+        light: '#8bac0f',
+        lightest: '#9bbc0f',
+      };
+
+      // Game state
+      let gameState = {
+        otameshi: 50,
+        choshi: 0,
+        turn: 0,
+        isGameOver: false,
+        currentStatement: null,
+        ojiSanMood: 'neutral', // neutral, angry, happy
+        ojiSanPos: 0, // for animation
+      };
+
+      // おためし statements with correct responses
+      const statements = [
+        { text: '「それ、前にも言わなかった?」', correct: 1, type: 'doubt' },
+        { text: '「本当にそれでいいの?」', correct: 2, type: 'concern' },
+        { text: '「もっと良い方法あるよね」', correct: 1, type: 'suggestion' },
+        { text: '「俺だったらこうするけどな」', correct: 0, type: 'ego' },
+        { text: '「それ、誰が決めたの?」', correct: 1, type: 'doubt' },
+        { text: '「本当に大丈夫?」', correct: 2, type: 'concern' },
+        { text: '「まあ、君の好きにしたら?」', correct: 0, type: 'passive' },
+        { text: '「俺の経験だとね...」', correct: 2, type: 'story' },
+        { text: '「それって意味ある?」', correct: 1, type: 'doubt' },
+        { text: '「ふーん、そうなんだ」', correct: 0, type: 'dismissive' },
+        { text: '「まあ頑張ってね」', correct: 0, type: 'passive' },
+        { text: '「若い人の考えは面白いね」', correct: 2, type: 'patronizing' },
+        { text: '「リスク考えた?」', correct: 1, type: 'concern' },
+        { text: '「前例はあるの?」', correct: 1, type: 'doubt' },
+        { text: '「俺は反対じゃないけど...」', correct: 2, type: 'passive' },
+      ];
+
+      // Response effects: [otameshi change, choshi change]
+      const responseEffects = {
+        0: [-5, 10], // ignore - 調子乗り増加
+        1: [-15, 5], // counter - おためし減少
+        2: [-10, -5], // laugh - バランス型
+      };
+
+      function drawPixel(x, y, color) {
+        ctx.fillStyle = color;
+        ctx.fillRect(x, y, 1, 1);
+      }
+
+      function drawRect(x, y, w, h, color) {
+        ctx.fillStyle = color;
+        ctx.fillRect(x, y, w, h);
+      }
+
+      // Draw office background
+      function drawBackground() {
+        // Floor
+        drawRect(0, 100, 160, 44, colors.light);
+
+        // Table
+        drawRect(20, 90, 120, 50, colors.dark);
+        drawRect(20, 88, 120, 2, colors.darkest);
+
+        // Wall
+        drawRect(0, 0, 160, 100, colors.lightest);
+
+        // Window
+        drawRect(10, 10, 40, 40, colors.light);
+        drawRect(29, 10, 2, 40, colors.dark);
+        drawRect(10, 29, 40, 2, colors.dark);
+
+        // Door
+        drawRect(120, 30, 30, 60, colors.dark);
+        drawRect(145, 55, 3, 3, colors.darkest);
+      }
+
+      // Draw player (left side)
+      function drawPlayer() {
+        const x = 40;
+        const y = 70;
+
+        // Head
+        drawRect(x, y, 8, 8, colors.light);
+        // Eyes
+        drawPixel(x + 2, y + 3, colors.darkest);
+        drawPixel(x + 5, y + 3, colors.darkest);
+        // Body
+        drawRect(x, y + 8, 8, 12, colors.dark);
+        // Arms
+        drawRect(x - 2, y + 10, 2, 6, colors.dark);
+        drawRect(x + 8, y + 10, 2, 6, colors.dark);
+      }
+
+      // Draw ojisan with expressions
+      function drawOjisan() {
+        const x = 100 + Math.floor(gameState.ojiSanPos);
+        const y = 70;
+
+        // Head
+        drawRect(x, y, 10, 10, colors.light);
+
+        // Hair
+        drawRect(x + 1, y - 2, 8, 3, colors.darkest);
+
+        // Glasses
+        drawRect(x + 1, y + 4, 3, 3, colors.darkest);
+        drawRect(x + 6, y + 4, 3, 3, colors.darkest);
+        drawRect(x + 4, y + 5, 2, 1, colors.darkest);
+
+        // Expression
+        if (gameState.ojiSanMood === 'angry') {
+          // Angry mouth
+          drawRect(x + 2, y + 8, 6, 1, colors.darkest);
+          // Angry eyebrows
+          drawPixel(x + 1, y + 3, colors.darkest);
+          drawPixel(x + 2, y + 2, colors.darkest);
+          drawPixel(x + 7, y + 2, colors.darkest);
+          drawPixel(x + 8, y + 3, colors.darkest);
+        } else if (gameState.ojiSanMood === 'happy') {
+          // Happy mouth (smile)
+          drawPixel(x + 2, y + 7, colors.darkest);
+          drawRect(x + 3, y + 8, 4, 1, colors.darkest);
+          drawPixel(x + 7, y + 7, colors.darkest);
+        } else {
+          // Neutral mouth
+          drawRect(x + 3, y + 8, 4, 1, colors.darkest);
+        }
+
+        // Body
+        drawRect(x, y + 10, 10, 14, colors.dark);
+
+        // Tie
+        drawRect(x + 4, y + 11, 2, 6, colors.darkest);
+
+        // Arms
+        drawRect(x - 2, y + 12, 2, 8, colors.dark);
+        drawRect(x + 10, y + 12, 2, 8, colors.dark);
+      }
+
+      function render() {
+        ctx.clearRect(0, 0, 160, 144);
+        drawBackground();
+        drawPlayer();
+        drawOjisan();
+      }
+
+      function updateGauges() {
+        gameState.otameshi = Math.max(0, Math.min(100, gameState.otameshi));
+        gameState.choshi = Math.max(0, Math.min(100, gameState.choshi));
+
+        document.getElementById('otameshi-gauge').style.width =
+          gameState.otameshi + '%';
+        document.getElementById('choshi-gauge').style.width =
+          gameState.choshi + '%';
+        document.getElementById('otameshi-value').textContent =
+          gameState.otameshi;
+        document.getElementById('choshi-value').textContent = gameState.choshi;
+        document.getElementById('turn').textContent = gameState.turn;
+      }
+
+      function showMessage(text) {
+        document.getElementById('message').textContent = text;
+      }
+
+      function animateOjisan(mood) {
+        gameState.ojiSanMood = mood;
+        let frames = 0;
+        const maxFrames = 8;
+
+        const anim = setInterval(() => {
+          gameState.ojiSanPos = Math.sin(frames * 0.5) * 2;
+          render();
+          frames++;
+
+          if (frames >= maxFrames) {
+            clearInterval(anim);
+            gameState.ojiSanPos = 0;
+            gameState.ojiSanMood = 'neutral';
+            render();
+          }
+        }, 100);
+      }
+
+      function checkGameOver() {
+        if (gameState.otameshi <= 0) {
+          endGame(true, 'WIN! おためしおじさんを黙らせた!');
+          return true;
+        }
+
+        if (gameState.choshi >= 100) {
+          endGame(false, 'LOSE... 調子に乗りすぎて信頼を失った...');
+          return true;
+        }
+
+        if (gameState.turn >= 10) {
+          endGame(true, 'WIN! 10ターン耐え抜いた!');
+          return true;
+        }
+
+        return false;
+      }
+
+      function endGame(isWin, message) {
+        gameState.isGameOver = true;
+        showMessage(message);
+        document.querySelectorAll('.button-container button').forEach((btn) => {
+          btn.disabled = true;
+        });
+        document.getElementById('restart').style.display = 'block';
+
+        if (isWin) {
+          animateOjisan('happy');
+        } else {
+          animateOjisan('angry');
+        }
+      }
+
+      function nextTurn() {
+        if (gameState.isGameOver) return;
+
+        gameState.turn++;
+        gameState.currentStatement =
+          statements[Math.floor(Math.random() * statements.length)];
+        showMessage(`おじさん: ${gameState.currentStatement.text}`);
+
+        document.querySelectorAll('.button-container button').forEach((btn) => {
+          btn.disabled = false;
+        });
+      }
+
+      function handleResponse(choice) {
+        if (gameState.isGameOver || !gameState.currentStatement) return;
+
+        document.querySelectorAll('.button-container button').forEach((btn) => {
+          btn.disabled = true;
+        });
+
+        const effects = responseEffects[choice];
+        gameState.otameshi += effects[0];
+        gameState.choshi += effects[1];
+
+        const isCorrect = choice === gameState.currentStatement.correct;
+
+        if (isCorrect) {
+          animateOjisan('neutral');
+          showMessage('うまい対応だ!');
+        } else {
+          if (choice === 0) {
+            animateOjisan('happy');
+            showMessage('おじさんが調子に乗ってきた...');
+          } else {
+            animateOjisan('angry');
+            showMessage('おじさんの機嫌が悪化...');
+          }
+        }
+
+        updateGauges();
+
+        setTimeout(() => {
+          if (!checkGameOver()) {
+            nextTurn();
+          }
+        }, 1500);
+      }
+
+      // Event listeners
+      document
+        .getElementById('btn-ignore')
+        .addEventListener('click', () => handleResponse(0));
+      document
+        .getElementById('btn-counter')
+        .addEventListener('click', () => handleResponse(1));
+      document
+        .getElementById('btn-laugh')
+        .addEventListener('click', () => handleResponse(2));
+
+      document.getElementById('restart').addEventListener('click', () => {
+        gameState = {
+          otameshi: 50,
+          choshi: 0,
+          turn: 0,
+          isGameOver: false,
+          currentStatement: null,
+          ojiSanMood: 'neutral',
+          ojiSanPos: 0,
+        };
+
+        updateGauges();
+        render();
+        document.getElementById('restart').style.display = 'none';
+        showMessage('会議が始まります...');
+
+        setTimeout(() => {
+          nextTurn();
+        }, 1000);
+      });
+
+      // Initialize
+      render();
+      updateGauges();
+      setTimeout(() => {
+        nextTurn();
+      }, 1500);
+    </script>
+  </body>
+</html>

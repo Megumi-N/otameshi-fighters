@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm start)",
+      "mcp__ide__getDiagnostics",
+      "Bash(npm install --save-dev @types/react @types/react-dom @types/node)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

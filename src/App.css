@@ -1,38 +1,169 @@
-.App {
-  text-align: center;
+/* Game Boy color palette */
+:root {
+  --color-darkest: #0f380f;
+  --color-dark: #306230;
+  --color-light: #8bac0f;
+  --color-lightest: #9bbc0f;
 }
 
-.App-logo {
-  height: 40vmin;
-  pointer-events: none;
+/* Ensure html and body take full height */
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+  padding: 0;
 }
 
-@media (prefers-reduced-motion: no-preference) {
-  .App-logo {
-    animation: App-logo-spin infinite 20s linear;
-  }
+body {
+  font-family: 'DotGothic16', 'Courier New', monospace;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
-.App-header {
-  background-color: #282c34;
-  min-height: 100vh;
+.game-container {
+  background: var(--color-darkest);
+  font-family: 'DotGothic16', 'Courier New', monospace;
   display: flex;
-  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  min-height: 100dvh; /* Dynamic viewport height - respects mobile browser UI */
+  color: var(--color-lightest);
+  padding: 20px;
+  box-sizing: border-box;
+}
+
+.game-wrapper {
+  width: 100%;
+  max-width: 640px;
+}
+
+.game-title {
+  text-align: center;
+  color: var(--color-lightest);
+  font-size: 18px;
+  margin-bottom: 10px;
+  text-shadow: 2px 2px var(--color-darkest);
+}
+
+.status-bar {
+  margin-bottom: 10px;
+}
+
+.status-label {
+  font-size: 14px;
+  margin-bottom: 3px;
+  color: var(--color-light);
+}
+
+.progress-bar-container {
+  width: 100%;
+  height: 20px;
+  background: var(--color-dark);
+  border: 2px solid var(--color-lightest);
+  position: relative;
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
+.progress-bar-fill {
+  height: 100%;
+  background: var(--color-lightest);
+  transition: width 0.3s;
+}
+
+.canvas-container {
+  position: relative;
+  margin: 10px 0;
+  width: 100%;
+}
+
+.game-canvas {
+  width: 100%;
+  height: auto;
+  border: 4px solid var(--color-lightest);
+  background: var(--color-light);
+  image-rendering: pixelated;
+  display: block;
+  box-sizing: border-box;
+}
+
+.message-box {
+  position: absolute;
+  bottom: 10px;
+  left: 10px;
+  right: 10px;
+  text-align: center;
+  background: var(--color-dark);
+  padding: 8px;
+  border: 2px solid var(--color-lightest);
+  min-height: 60px;
+  font-size: 12px;
+  color: var(--color-lightest);
+  white-space: pre-line;
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
+  line-height: 1.4;
+  max-height: 120px;
+  overflow-y: auto;
+}
+
+.button-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin: 15px 0;
+  width: 100%;
+}
+
+.game-button {
+  padding: 12px 10px;
+  background: var(--color-dark);
+  color: var(--color-lightest);
+  border: 3px solid var(--color-lightest);
+  font-size: 13px;
+  font-family: 'DotGothic16', 'Courier New', monospace;
+  cursor: pointer;
+  transition: opacity 0.2s;
+  line-height: 1.5;
+  min-height: 60px;
+  display: flex;
   align-items: center;
   justify-content: center;
-  font-size: calc(10px + 2vmin);
-  color: white;
+  text-align: center;
+  box-sizing: border-box;
 }
 
-.App-link {
-  color: #61dafb;
+.game-button:hover:not(:disabled) {
+  opacity: 0.8;
 }
 
-@keyframes App-logo-spin {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
+.game-button:disabled {
+  cursor: default;
+  opacity: 0.5;
+}
+
+.restart-button {
+  display: block;
+  margin: 15px 0;
+  width: 100%;
+  padding: 15px;
+  background: var(--color-dark);
+  color: var(--color-lightest);
+  border: 3px solid var(--color-lightest);
+  font-size: 16px;
+  font-family: 'DotGothic16', 'Courier New', monospace;
+  cursor: pointer;
+  box-sizing: border-box;
+  min-height: 60px;
+}
+
+.restart-button:hover {
+  opacity: 0.8;
+}
+
+.game-info {
+  text-align: center;
+  font-size: 13px;
+  color: var(--color-light);
+  line-height: 1.6;
 }
